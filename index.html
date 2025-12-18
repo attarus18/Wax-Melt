@@ -23,26 +23,26 @@
         -webkit-appearance: none;
         width: 100%;
         height: 8px;
-        background: #e2e2e2;
+        background: #444;
         border-radius: 5px;
         outline: none;
       }
       input[type="range"]::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 24px;
-        height: 24px;
-        background: #3b82f6;
+        width: 20px;
+        height: 20px;
+        background: #f9a602;
         cursor: pointer;
         border-radius: 50%;
+        border: 2px solid #1a1a1a;
       }
       
-      /* Stile specifico per l'app */
       .app-card {
         background-color: #333333;
         border: 2px solid #f9a602;
         border-radius: 1rem;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
       }
       .app-button {
         background-color: #f9a602;
@@ -51,10 +51,13 @@
         border-radius: 0.75rem;
         padding: 0.8rem;
         transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
       }
       .app-button:active {
-        transform: scale(0.98);
-        opacity: 0.9;
+        transform: scale(0.97);
       }
       .app-input {
         background-color: #444444;
@@ -63,20 +66,27 @@
         border-radius: 0.5rem;
         padding: 0.6rem;
         width: 100%;
+        outline: none;
+      }
+      .app-input:focus {
+        border-color: #f9a602;
       }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
   }
 }
 </script>
 </head>
   <body class="bg-app-dark overflow-x-hidden">
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

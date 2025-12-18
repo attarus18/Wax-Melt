@@ -28,7 +28,7 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
           </button>
 
           <div className="pt-6 w-full flex flex-col items-center">
-            <h2 className="text-wax-orange/60 text-[10px] font-bold uppercase tracking-[0.2em] mb-4 border-b border-wax-orange/20 w-full text-center pb-2">
+            <h2 className="text-wax-orange/50 text-[10px] font-bold uppercase tracking-[0.2em] mb-4 border-b border-wax-orange/20 w-full text-center pb-2">
               Gestione Magazzino
             </h2>
             
@@ -49,7 +49,7 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
 
               <button 
                 onClick={() => setView('SETTINGS')}
-                className="app-button w-full text-lg shadow-lg opacity-80 !bg-zinc-600 !text-white mt-4"
+                className="app-button w-full text-lg shadow-lg opacity-80 !bg-zinc-700 !text-white mt-4"
               >
                 Impostazioni
               </button>
