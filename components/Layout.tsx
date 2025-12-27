@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View } from '../types';
-import { Calculator, Box, Package, Settings, Flame } from 'lucide-react';
+import { Calculator, Package, Settings, Flame } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,7 +12,6 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activeView, setView }) => {
   const navItems = [
     { id: 'CALCULATOR' as View, label: 'Calcolatore', icon: Calculator },
-    { id: 'RAW_MATERIALS' as View, label: 'Materie Prime', icon: Box },
     { id: 'FINISHED_PRODUCTS' as View, label: 'Prodotti Finiti', icon: Package },
     { id: 'SETTINGS' as View, label: 'Impostazioni', icon: Settings },
   ];
