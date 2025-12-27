@@ -11,6 +11,7 @@ import { loadFromDB, saveToDB } from './utils/storage';
 import { getTranslation } from './utils/i18n';
 import { CheckCircle2, Globe, Coins, BellRing } from 'lucide-react';
 import { supabase, syncDataToCloud, fetchDataFromCloud } from './utils/supabase';
+import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('HOME');
@@ -99,7 +100,7 @@ const App: React.FC = () => {
     };
     init();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       if (session?.user) {
         setUser({ id: session.user.id, email: session.user.email || '' });
         if (event === 'SIGNED_IN') {
@@ -226,6 +227,7 @@ const App: React.FC = () => {
           user={user}
           isSyncing={isSyncing}
           onSyncNow={() => persistData(true)}
+          onSyncComplete={() => {}}
           onUpdateSettings={(settings) => updateState({ ...state, settings })}
           onClearData={() => {
             const fresh = { finishedProducts: [], rawMaterials: [], settings: state.settings };

@@ -1,5 +1,5 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { createClient } from '@supabase/supabase-js';
 import { InventoryState } from '../types';
 
 // Inserisci qui l'URL e la Anon Key del tuo progetto Supabase
