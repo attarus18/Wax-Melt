@@ -4,33 +4,21 @@
 <head>
   <base href="/">
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="WaxPro Manager - Professional Candle Tracking">
-
-  <!-- iOS meta tags & icons -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="WaxPro">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
   <title>WaxPro Manager</title>
-  <link rel="manifest" href="manifest.json">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { background-color: #1a1a1a; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    body { background-color: #1a1a1a; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: #f9a602; font-family: sans-serif; }
     .loader { border: 4px solid #333; border-top: 4px solid #f9a602; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="loader"></div>
+  <div id="flutter_loader" class="loader"></div>
   <script src="flutter.js" defer></script>
   <script>
     window.addEventListener('load', function(ev) {
       _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: '1',
-        },
+        serviceWorker: { serviceWorkerVersion: '1.0' },
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {
             appRunner.runApp();
