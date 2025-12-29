@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trash2, Download, ShieldAlert, Globe, Coins, User, LogIn, LogOut, Key, Mail, RefreshCw, UserPlus, Info, Copy, Check, ExternalLink, Cloud } from 'lucide-react';
+import { Trash2, ShieldAlert, Globe, Coins, User, LogIn, LogOut, Key, Mail, RefreshCw, UserPlus, Cloud } from 'lucide-react';
 import { Language, Currency, UserProfile } from '../types';
 import { supabase } from '../utils/supabase';
 
@@ -12,19 +12,18 @@ interface SettingsProps {
   user: UserProfile | null;
   isSyncing: boolean;
   onSyncNow: () => void;
+  onLogout: () => void;
   onUpdateSettings: (settings: { language: Language; currency: Currency }) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, user, isSyncing, onSyncNow, onUpdateSettings }) => {
+const Settings: React.FC<SettingsProps> = ({ 
+  onClearData, t, lang, currency, user, isSyncing, onSyncNow, onLogout, onUpdateSettings 
+}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [showConfigHelp, setShowConfigHelp] = useState(false);
-  const [urlCopied, setUrlCopied] = useState(false);
-
-  const redirectUrl = window.location.origin;
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,15 +35,9 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: {
-              full_name: email.split('@')[0]
-            }
-          }
         });
         if (error) throw error;
-        alert("Account creato! Controlla la tua email e clicca sul link di conferma.");
+        alert("Account creato! Controlla la tua email per confermare.");
         setIsRegistering(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -57,22 +50,9 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
     }
   };
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(redirectUrl);
-    setUrlCopied(true);
-    setTimeout(() => setUrlCopied(false), 2000);
-  };
-
-  const handleLogout = async () => {
+  const handleLogoutClick = () => {
     if (window.confirm("Vuoi disconnetterti? I tuoi dati rimarranno al sicuro sul cloud.")) {
-      setLoading(true);
-      try {
-        await supabase.auth.signOut();
-      } catch (e: any) {
-        console.error("Logout error:", e.message);
-      } finally {
-        setLoading(false);
-      }
+      onLogout();
     }
   };
 
@@ -80,7 +60,6 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
     <div className="max-w-2xl mx-auto space-y-8 pb-20 w-full animate-in fade-in slide-in-from-bottom-4">
       <h2 className="text-2xl font-black text-white px-2 tracking-tight">IMPOSTAZIONI</h2>
 
-      {/* Cloud Account Section */}
       <section className="app-card overflow-hidden border-wax-orange/40">
         <div className="p-1.5 bg-gradient-to-r from-wax-orange via-amber-600 to-amber-900" />
         <div className="p-6">
@@ -107,14 +86,13 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
                   className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-wax-orange font-black uppercase tracking-widest transition-all border border-zinc-700 active:scale-95 disabled:opacity-50"
                 >
                   {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <Cloud size={18} />}
-                  {isSyncing ? 'Sincronizzo...' : 'Sincronizza'}
+                  Sincronizza
                 </button>
                 <button 
-                  onClick={handleLogout}
-                  disabled={loading}
+                  onClick={handleLogoutClick}
                   className="flex items-center justify-center gap-2 py-4 rounded-2xl bg-zinc-800 hover:bg-red-900/20 hover:text-red-500 hover:border-red-900/50 text-zinc-400 font-black uppercase tracking-widest transition-all border border-zinc-700 active:scale-95"
                 >
-                  {loading ? <RefreshCw size={18} className="animate-spin" /> : <LogOut size={18} />}
+                  <LogOut size={18} />
                   Esci
                 </button>
               </div>
@@ -124,8 +102,8 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
               <form onSubmit={handleAuth} className="space-y-4">
                 <p className="text-xs text-zinc-400 mb-6 font-medium leading-relaxed">
                   {isRegistering 
-                    ? "Crea un account per sincronizzare le tue formule e il tuo magazzino su tutti i tuoi dispositivi in tempo reale."
-                    : "Accedi per recuperare le tue candele e i tuoi dati di produzione sincronizzati."}
+                    ? "Crea un account per sincronizzare i tuoi dati su tutti i dispositivi."
+                    : "Accedi per recuperare i tuoi dati sincronizzati."}
                 </p>
                 
                 <div className="space-y-3">
@@ -133,7 +111,7 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-wax-orange transition-colors" size={18} />
                     <input 
                       type="email" 
-                      placeholder="Email aziendale o personale" 
+                      placeholder="Email" 
                       className="app-input pl-12 py-4" 
                       required 
                       value={email}
@@ -144,7 +122,7 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
                     <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-wax-orange transition-colors" size={18} />
                     <input 
                       type="password" 
-                      placeholder="Scegli una password" 
+                      placeholder="Password" 
                       className="app-input pl-12 py-4" 
                       required 
                       minLength={6}
@@ -166,13 +144,7 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
                     disabled={loading}
                     className="app-button w-full shadow-xl py-4"
                   >
-                    {loading ? (
-                      <RefreshCw size={20} className="animate-spin" />
-                    ) : isRegistering ? (
-                      <UserPlus size={20} />
-                    ) : (
-                      <LogIn size={20} />
-                    )}
+                    {loading ? <RefreshCw size={20} className="animate-spin" /> : (isRegistering ? <UserPlus size={20} /> : <LogIn size={20} />)}
                     {isRegistering ? 'Crea Account' : 'Accedi'}
                   </button>
                   <button 
@@ -189,21 +161,20 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
         </div>
       </section>
 
-      {/* Language and Currency Section */}
       <section className="app-card p-6 space-y-8">
         <div>
           <h3 className="font-black text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4 flex items-center gap-2">
-            <Globe size={16} /> LINGUA INTERFACCIA
+            <Globe size={16} /> LINGUA
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {['it', 'en', 'fr', 'de', 'es', 'ar', 'zh'].map((l) => (
+          <div className="grid grid-cols-4 gap-2">
+            {['it', 'en', 'fr', 'es'].map((l) => (
               <button 
                 key={l}
                 onClick={() => onUpdateSettings({ language: l as Language, currency })}
                 className={`py-3 rounded-xl font-bold transition-all border ${
                   lang === l 
                   ? 'bg-wax-orange text-zinc-900 border-wax-orange' 
-                  : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'
+                  : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                 }`}
               >
                 {l.toUpperCase()}
@@ -214,57 +185,44 @@ const Settings: React.FC<SettingsProps> = ({ onClearData, t, lang, currency, use
 
         <div>
           <h3 className="font-black text-xs uppercase tracking-[0.2em] text-zinc-500 mb-4 flex items-center gap-2">
-            <Coins size={16} /> VALUTA PREDEFINITA
+            <Coins size={16} /> VALUTA
           </h3>
           <div className="grid grid-cols-2 gap-3">
             <button 
               onClick={() => onUpdateSettings({ language: lang, currency: 'EUR' })}
-              className={`py-4 rounded-2xl font-black text-lg transition-all border flex items-center justify-center gap-3 ${
-                currency === 'EUR' 
-                ? 'bg-zinc-800 text-wax-orange border-wax-orange' 
-                : 'bg-zinc-900 text-zinc-500 border-zinc-800'
+              className={`py-4 rounded-2xl font-black transition-all border ${
+                currency === 'EUR' ? 'bg-zinc-800 text-wax-orange border-wax-orange' : 'bg-zinc-900 text-zinc-500 border-zinc-800'
               }`}
             >
-              <span className="text-2xl">€</span> EURO
+              EURO
             </button>
             <button 
               onClick={() => onUpdateSettings({ language: lang, currency: 'USD' })}
-              className={`py-4 rounded-2xl font-black text-lg transition-all border flex items-center justify-center gap-3 ${
-                currency === 'USD' 
-                ? 'bg-zinc-800 text-wax-orange border-wax-orange' 
-                : 'bg-zinc-900 text-zinc-500 border-zinc-800'
+              className={`py-4 rounded-2xl font-black transition-all border ${
+                currency === 'USD' ? 'bg-zinc-800 text-wax-orange border-wax-orange' : 'bg-zinc-900 text-zinc-500 border-zinc-800'
               }`}
             >
-              <span className="text-2xl">$</span> USD
+              USD
             </button>
           </div>
         </div>
       </section>
 
-      {/* Advanced Data Management */}
-      <section className="app-card p-6 space-y-6">
-        <div>
-          <h3 className="font-black text-xs uppercase tracking-[0.2em] text-red-500/80 mb-2 flex items-center gap-2">
-            <ShieldAlert size={16} /> ZONA PERICOLO
-          </h3>
-        </div>
-
-        <div className="grid gap-3">
-          <button 
-            onClick={() => {
-              if (window.confirm("Attenzione: Questa operazione eliminerà TUTTO dal dispositivo attuale. Proseguire?")) {
-                onClearData();
-              }
-            }}
-            className="flex items-center justify-between p-4 bg-red-900/10 hover:bg-red-900/20 rounded-2xl transition-all text-left border border-red-900/20 group"
-          >
-            <div>
-              <div className="font-bold text-red-500">Resetta Applicazione</div>
-              <div className="text-[9px] uppercase font-black text-red-800 tracking-tighter">Elimina dati locali</div>
-            </div>
-            <Trash2 className="text-red-500 group-hover:animate-pulse" />
-          </button>
-        </div>
+      <section className="app-card p-6">
+        <button 
+          onClick={() => {
+            if (window.confirm("Attenzione: eliminerà TUTTO dal dispositivo. Proseguire?")) {
+              onClearData();
+            }
+          }}
+          className="flex items-center justify-between w-full p-4 bg-red-900/10 hover:bg-red-900/20 rounded-2xl transition-all text-left border border-red-900/20"
+        >
+          <div>
+            <div className="font-bold text-red-500">Resetta Applicazione</div>
+            <div className="text-[9px] uppercase font-black text-red-800 tracking-widest">Elimina dati locali</div>
+          </div>
+          <Trash2 className="text-red-500" />
+        </button>
       </section>
     </div>
   );

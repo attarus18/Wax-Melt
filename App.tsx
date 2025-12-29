@@ -27,7 +27,6 @@ const App: React.FC = () => {
   const [onboardingStep, setOnboardingStep] = useState<'LANG' | 'CURR' | null>(null);
   
   const stateRef = useRef(state);
-  // Fixed: Use ReturnType<typeof setTimeout> to avoid "Cannot find namespace 'NodeJS'" error in browser-only environments.
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -45,10 +44,8 @@ const App: React.FC = () => {
   };
 
   const persistData = useCallback(async (forceCloud = false) => {
-    // 1. Salva sempre in locale (IndexedDB)
     await saveToDB(stateRef.current);
     
-    // 2. Sincronizzazione Cloud
     if (user) {
       if (forceCloud) {
         setIsSyncing(true);
@@ -61,21 +58,33 @@ const App: React.FC = () => {
         }
         setIsSyncing(false);
       } else {
-        // Debounce: Aspetta che l'utente finisca di fare modifiche prima di inviare al cloud
         if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
         syncTimeoutRef.current = setTimeout(async () => {
           setIsSyncing(true);
           await syncDataToCloud(user.id, stateRef.current);
           setIsSyncing(false);
-        }, 3000); // 3 secondi di pausa dopo l'ultima modifica
+        }, 3000);
       }
     }
   }, [user]);
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      const localData = await loadFromDB();
+      setState(localData);
+      setView('HOME');
+      showNotification("Sessione chiusa correttamente", "warning");
+    } catch (error) {
+      console.error("Logout error:", error);
+      showNotification("Errore durante il logout", "error");
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
       let finalState: InventoryState;
 
       if (session?.user) {
@@ -83,7 +92,6 @@ const App: React.FC = () => {
         setIsSyncing(true);
         const cloudData = await fetchDataFromCloud(session.user.id);
         const localData = await loadFromDB();
-        
         finalState = { ...localData, ...(cloudData || {}) };
         setState(finalState);
         setIsSyncing(false);
@@ -111,13 +119,10 @@ const App: React.FC = () => {
             if (cloudData.settings?.language) setOnboardingStep(null);
           }
         }
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
-        if (event === 'SIGNED_OUT') {
-          showNotification("Sessione chiusa", "warning");
-          const localData = await loadFromDB();
-          setState(localData);
-        }
+        const localData = await loadFromDB();
+        setState(localData);
       }
     });
 
@@ -176,18 +181,13 @@ const App: React.FC = () => {
             type,
             timestamp: Date.now()
           }];
-          
-          if (type === 'SALE' && newQty <= (p.reorderLevel || 0)) {
-            alerted = true;
-          }
-
+          if (type === 'SALE' && newQty <= (p.reorderLevel || 0)) alerted = true;
           return { ...p, quantity: newQty, history: newHistory };
         }
         return p;
       })
     };
     updateState(newState);
-    
     if (alerted) {
       showNotification(t("reorder_alert"), 'warning');
     } else {
@@ -203,7 +203,6 @@ const App: React.FC = () => {
 
   const renderView = () => {
     const commonProps = { setView, t, lang, currency: state.settings?.currency || 'EUR' };
-    
     switch(view) {
       case 'HOME': return <Home {...commonProps} user={user} />;
       case 'CALCULATOR': return <Calculator {...commonProps} onAddProduct={addFinishedProduct} />;
@@ -227,7 +226,7 @@ const App: React.FC = () => {
           user={user}
           isSyncing={isSyncing}
           onSyncNow={() => persistData(true)}
-          onSyncComplete={() => {}}
+          onLogout={handleLogout}
           onUpdateSettings={(settings) => updateState({ ...state, settings })}
           onClearData={() => {
             const fresh = { finishedProducts: [], rawMaterials: [], settings: state.settings };
@@ -241,7 +240,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen bg-app-dark flex flex-col items-center p-4 relative overflow-x-hidden ${lang === 'ar' ? 'font-arabic' : ''}`}>
-      {/* Onboarding Overlay */}
       {onboardingStep && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-app-dark/95 backdrop-blur-xl">
           <div className="app-card w-full max-w-sm p-8 flex flex-col items-center text-center animate-in zoom-in-95">
@@ -281,7 +279,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Notifiche Toast */}
       {toast && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-10 fade-in duration-300">
           <div className={`bg-zinc-900 border-2 ${toast.type === 'error' ? 'border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.3)]' : 'border-wax-orange shadow-[0_0_30px_rgba(249,166,2,0.2)]'} px-6 py-4 rounded-2xl flex items-center gap-3`}>
@@ -291,7 +288,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Barra di Navigazione Superiore */}
       <div className="w-full max-w-sm flex justify-start items-center mb-6 px-2 mt-8 sm:mt-0 h-12">
          {view !== 'HOME' && (
            <button onClick={() => setView('HOME')} className="text-wax-orange flex items-center gap-2 bg-zinc-800/80 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-zinc-700 shadow-xl transition-all hover:bg-zinc-700 active:scale-95">

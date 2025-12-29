@@ -1,7 +1,6 @@
 
 {
-  "installCommand": "if [ ! -d \"flutter\" ]; then git clone https://github.com/flutter/flutter.git -b stable; fi && ./flutter/bin/flutter doctor",
-  "buildCommand": "./flutter/bin/flutter build web --release",
-  "outputDirectory": "build/web",
-  "framework": null
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
 }
