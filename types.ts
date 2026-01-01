@@ -1,5 +1,5 @@
 
-export type View = 'HOME' | 'CALCULATOR' | 'PRODUCTION_COST' | 'FINISHED_PRODUCTS' | 'SETTINGS' | 'PRODUCT_STATS';
+export type View = 'HOME' | 'CALCULATOR' | 'PRODUCTION_COST' | 'FINISHED_PRODUCTS' | 'SETTINGS' | 'PRODUCT_STATS' | 'RECOVERY';
 
 export type TransactionType = 'SALE' | 'RESTOCK' | 'RETURN';
 
