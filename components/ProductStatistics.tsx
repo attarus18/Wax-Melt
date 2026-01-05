@@ -1,20 +1,22 @@
 
 import React, { useState, useMemo } from 'react';
-import { FinishedProduct, View } from '../types';
-// Rimosso DollarSign dagli import
+import { FinishedProduct, View, Currency } from '../types';
 import { Share2, ArrowLeft, Check, TrendingUp, RotateCcw, AlertCircle, BarChart3 } from 'lucide-react';
-import { WaxProIcon } from './CustomIcons';
+import { getCurrencySymbol } from '../utils/i18n';
 
 interface ProductStatisticsProps {
   product: FinishedProduct;
   setView: (view: View) => void;
+  currency: Currency;
+  t: (key: string) => string;
 }
 
 type Period = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
-const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView }) => {
+const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView, currency, t }) => {
   const [period, setPeriod] = useState<Period>('MONTHLY');
   const [copied, setCopied] = useState(false);
+  const symbol = getCurrencySymbol(currency);
 
   const periodData = useMemo(() => {
     const now = Date.now();
@@ -51,9 +53,9 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
 
     let currentAngle = 0;
     const data = [
-      { value: sales, color: '#f9a602', label: 'Vendite' },
-      { value: restocks, color: '#22c55e', label: 'Riordini' },
-      { value: returns, color: '#3b82f6', label: 'Resi' }
+      { value: sales, color: '#f9a602', label: t('vendi') },
+      { value: restocks, color: '#22c55e', label: t('carico') },
+      { value: returns, color: '#3b82f6', label: t('reso') }
     ];
 
     return data.filter(d => d.value > 0).map(d => {
@@ -71,26 +73,26 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
 
       return { ...d, pathData, percentage: ((d.value / totalMovements) * 100).toFixed(1) };
     });
-  }, [periodData]);
+  }, [periodData, t]);
 
   const handleShare = async () => {
     const periodLabel = {
-      DAILY: 'Ultimi 7 Giorni',
-      WEEKLY: 'Ultime 8 Settimane',
-      MONTHLY: 'Ultimi 12 Mesi',
-      YEARLY: 'Ultimi 5 Anni'
+      DAILY: t('daily'),
+      WEEKLY: t('weekly'),
+      MONTHLY: t('monthly'),
+      YEARLY: t('yearly')
     }[period];
     
     const text = `📊 WAXPRO MANAGER - REPORT VENDITE\n` +
                  `📦 Prodotto: ${product.name}\n` +
                  `📅 Periodo: ${periodLabel}\n` +
                  `------------------------------\n` +
-                 `🛒 VENDITE: ${periodData.sales} pz\n` +
-                 `🔄 RESI: ${periodData.returns} pz\n` +
-                 `📦 RIORDINI: ${periodData.restocks} pz\n` +
+                 `🛒 ${t('vendi').toUpperCase()}: ${periodData.sales} pz\n` +
+                 `🔄 ${t('reso').toUpperCase()}: ${periodData.returns} pz\n` +
+                 `📦 ${t('carico').toUpperCase()}: ${periodData.restocks} pz\n` +
                  `------------------------------\n` +
-                 `💰 INCASSO VENDUTO: € ${periodData.revenue.toFixed(2)}\n` +
-                 `📍 GIACENZA ATTUALE: ${product.quantity} pz`;
+                 `💰 ${t('incasso_netto').toUpperCase()}: ${symbol} ${periodData.revenue.toFixed(2)}\n` +
+                 `📍 ${t('giacenza').toUpperCase()} ATTUALE: ${product.quantity} pz`;
 
     try {
       if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -112,20 +114,20 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="flex items-center gap-4">
+    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20 w-full">
+      <div className="flex items-center gap-4 px-2">
         <button onClick={() => setView('FINISHED_PRODUCTS')} className="text-zinc-400 hover:text-white transition-colors p-2 -ml-2">
           <ArrowLeft size={24} />
         </button>
         <div className="flex-grow">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <TrendingUp className="text-wax-orange" size={32} /> {product.name}
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2 truncate">
+            <TrendingUp className="text-wax-orange shrink-0" size={32} /> {product.name}
           </h2>
-          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Performance e Venduto</p>
+          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('statistiche')}</p>
         </div>
       </div>
 
-      <div className="flex bg-zinc-800 p-1 rounded-xl gap-1 shadow-inner">
+      <div className="flex bg-zinc-800 p-1 rounded-xl gap-1 shadow-inner mx-2">
         {(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as Period[]).map(p => (
           <button
             key={p}
@@ -134,35 +136,34 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
               period === p ? 'bg-wax-orange text-zinc-900 shadow-md scale-[1.02]' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            {p === 'DAILY' ? 'Giorno' : p === 'WEEKLY' ? 'Sett.' : p === 'MONTHLY' ? 'Mese' : 'Anno'}
+            {t(p.toLowerCase())}
           </button>
         ))}
       </div>
 
-      <div className="app-card p-6 flex flex-col relative overflow-hidden min-h-[600px] border-wax-orange/30">
+      <div className="app-card p-6 flex flex-col relative overflow-hidden min-h-[600px] border-wax-orange/30 mx-2">
         <div className={`rounded-2xl p-6 mb-8 border transition-all duration-500 shadow-lg ${periodData.revenue >= 0 ? 'bg-zinc-900/60 border-wax-orange/20' : 'bg-red-900/20 border-red-500/30'}`}>
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] text-zinc-500 uppercase font-black tracking-[0.15em]">Incasso Venduto Netto</span>
-            {/* Rimosso il blocco con l'icona DollarSign qui */}
+            <span className="text-[10px] text-zinc-500 uppercase font-black tracking-[0.15em]">{t('incasso_netto')}</span>
           </div>
           
           <div className={`text-5xl font-black mb-4 ${periodData.revenue >= 0 ? 'text-wax-orange' : 'text-red-500'}`}>
-            € {periodData.revenue.toFixed(2)}
+            {symbol} {periodData.revenue.toFixed(2)}
           </div>
 
           {!product.sellingPrice || product.sellingPrice === 0 ? (
             <div className="flex items-center gap-3 text-red-400 text-[10px] font-black bg-red-500/10 p-3 rounded-xl border border-red-500/20 animate-pulse">
-              <AlertCircle size={18} /> PREZZO DI VENDITA NON IMPOSTATO! Modifica il prodotto per vedere l'incasso.
+              <AlertCircle size={18} /> PREZZO DI VENDITA NON IMPOSTATO!
             </div>
           ) : (
             <div className="space-y-3 pt-2 border-t border-zinc-800">
                <div className="flex justify-between items-center text-[10px] text-zinc-400">
-                 <span className="font-medium uppercase tracking-wider">Formula Calcolo:</span>
-                 <span className="bg-zinc-800 px-2 py-1 rounded-md">({periodData.sales} - {periodData.returns}) × {product.sellingPrice.toFixed(2)}€</span>
+                 <span className="font-medium uppercase tracking-wider">Formula:</span>
+                 <span className="bg-zinc-800 px-2 py-1 rounded-md">({periodData.sales} - {periodData.returns}) × {product.sellingPrice.toFixed(2)}{symbol}</span>
                </div>
                {periodData.returns > 0 && (
                  <div className="flex items-center gap-2 text-blue-400 text-[9px] font-bold uppercase italic tracking-wide">
-                   <RotateCcw size={12} /> {periodData.returns} resi sottratti dall'incasso
+                   <RotateCcw size={12} /> {periodData.returns} {t('reso')} sottratti
                  </div>
                )}
             </div>
@@ -171,15 +172,15 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
 
         <div className="grid grid-cols-3 gap-3 mb-8">
           <div className="bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800 text-center">
-            <div className="text-zinc-500 text-[8px] font-black uppercase mb-1">Vendite</div>
+            <div className="text-zinc-500 text-[8px] font-black uppercase mb-1">{t('vendi')}</div>
             <div className="text-xl font-black text-white">{periodData.sales}</div>
           </div>
           <div className="bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800 text-center">
-            <div className="text-zinc-500 text-[8px] font-black uppercase mb-1">Resi</div>
+            <div className="text-zinc-500 text-[8px] font-black uppercase mb-1">{t('reso')}</div>
             <div className="text-xl font-black text-blue-400">{periodData.returns}</div>
           </div>
           <div className="bg-zinc-900/40 p-3 rounded-2xl border border-zinc-800 text-center">
-            <div className="text-zinc-500 text-[8px] font-black uppercase mb-1">Riordini</div>
+            <div className="text-zinc-500 text-[8px] font-black uppercase mb-1">{t('carico')}</div>
             <div className="text-xl font-black text-green-400">{periodData.restocks}</div>
           </div>
         </div>
@@ -197,7 +198,7 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
                   />
                 ))}
                 <circle cx="50" cy="50" r="30" fill="#18181b" />
-                <text x="50" y="52" textAnchor="middle" fill="#52525b" fontSize="6" fontWeight="900" className="uppercase tracking-widest">Attività</text>
+                <text x="50" y="52" textAnchor="middle" fill="#52525b" fontSize="6" fontWeight="900" className="uppercase tracking-widest">{t('statistiche').slice(0, 5)}</text>
               </svg>
               
               <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
@@ -207,7 +208,7 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
           ) : (
             <div className="text-center space-y-2 opacity-30">
               <TrendingUp size={48} className="mx-auto" />
-              <p className="text-[10px] font-bold uppercase">Nessun dato per questo periodo</p>
+              <p className="text-[10px] font-bold uppercase">{t('nessun_prodotto')}</p>
             </div>
           )}
           
@@ -219,7 +220,7 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
                   <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{slice.label}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                   <span className="text-[10px] font-black text-white">{slice.value} units</span>
+                   <span className="text-[10px] font-black text-white">{slice.value} pz</span>
                    <span className="text-[8px] font-bold text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">{slice.percentage}%</span>
                 </div>
               </div>
@@ -234,7 +235,7 @@ const ProductStatistics: React.FC<ProductStatisticsProps> = ({ product, setView 
           }`}
         >
           {copied ? <Check size={20}/> : <Share2 size={24} />}
-          {copied ? 'Copiato!' : 'Condividi Report'}
+          {copied ? t('copiato') : t('condividi')}
         </button>
       </div>
     </div>

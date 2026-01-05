@@ -39,7 +39,6 @@ export const loadFromDB = async (): Promise<InventoryState> => {
 
       request.onsuccess = () => {
         if (request.result) {
-          // Restituiamo l'intero oggetto, mantenendo compatibilità se mancano campi
           resolve({
             finishedProducts: request.result.finishedProducts || [],
             rawMaterials: request.result.rawMaterials || [],
@@ -86,6 +85,25 @@ export const saveToDB = async (state: InventoryState): Promise<boolean> => {
     });
   } catch (e) {
     console.error("Errore salvataggio DB:", e);
+    return false;
+  }
+};
+
+export const clearDB = async (): Promise<boolean> => {
+  try {
+    const db = await getDB();
+    return new Promise((resolve) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.clear();
+
+      localStorage.removeItem('waxpro_manager_data');
+
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => resolve(false);
+    });
+  } catch (e) {
+    console.error("Errore pulizia DB:", e);
     return false;
   }
 };
