@@ -12,7 +12,7 @@ import { loadFromDB, saveToDB, clearDB } from './utils/storage';
 import { getTranslation } from './utils/i18n';
 import { GoogleGenAI } from "@google/genai";
 import { Globe, Coins, RefreshCw } from 'lucide-react';
-import { supabase, syncDataToCloud, fetchDataFromCloud, updateAccountPassword } from './utils/supabase';
+import { supabase, syncDataToCloud, fetchDataFromCloud } from './utils/supabase';
 
 const App: React.FC = () => {
   const checkRecovery = () => {
@@ -34,7 +34,6 @@ const App: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
   const [onboardingStep, setOnboardingStep] = useState<'LANG' | 'CURR' | null>(null);
-  const [isRecovering, setIsRecovering] = useState(checkRecovery());
 
   const stateRef = useRef(state);
   const userRef = useRef(user);
@@ -50,12 +49,17 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
+  /**
+   * Sincronizza i dati locali con Supabase
+   */
   const persistData = useCallback(async (forceCloud = false) => {
     const currentState = stateRef.current;
     const currentUser = userRef.current;
     
+    // Salviamo sempre in locale (IndexedDB)
     await saveToDB(currentState);
     
+    // Se c'è un utente, sincronizziamo sul cloud
     if (currentUser) {
       if (forceCloud) {
         setIsSyncing(true);
@@ -68,6 +72,7 @@ const App: React.FC = () => {
         }
         setIsSyncing(false);
       } else {
+        // Debounce automatico per non sovraccaricare il database
         if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
         syncTimeoutRef.current = setTimeout(async () => {
           if (!userRef.current) return;
@@ -77,7 +82,7 @@ const App: React.FC = () => {
              setState(prev => ({ ...prev, lastSynced: Date.now() }));
           }
           setIsSyncing(false);
-        }, 3000);
+        }, 5000); // 5 secondi di delay per la sincronizzazione auto
       }
     }
   }, []);
@@ -98,17 +103,13 @@ const App: React.FC = () => {
 
     setIsConverting(true);
     try {
-      // Regola Senior: Crea istanza nuova per ogni chiamata per usare l'API_KEY più aggiornata
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Quanto vale 1 ${oldCurrency} in ${newCurrency} oggi? Rispondi ESCLUSIVAMENTE con il valore numerico decimale (es: 1.08). Usa Google Search per precisione.`,
-        config: {
-          tools: [{ googleSearch: {} }]
-        }
+        contents: `Qual è il tasso di cambio attuale da ${oldCurrency} a ${newCurrency}? Rispondi solo con il numero decimale (es. 1.085).`,
+        config: { tools: [{ googleSearch: {} }] }
       });
 
-      // Regola Senior: Accedi a .text come proprietà, non metodo
       const rateText = response.text || "1";
       const rate = parseFloat(rateText.replace(/[^0-9.]/g, ''));
       
@@ -126,16 +127,19 @@ const App: React.FC = () => {
         settings: { ...state.settings!, currency: newCurrency }
       });
 
-      showNotification(`Convertito con tasso: ${rate.toFixed(4)}`);
+      showNotification(`Prezzi aggiornati (${rate.toFixed(4)})`);
     } catch (error) {
       console.error("Errore conversione:", error);
-      showNotification("Errore recupero cambio", "error");
+      showNotification("Errore cambio valuta", "error");
       updateState({ ...state, settings: { ...state.settings!, currency: newCurrency } });
     } finally {
       setIsConverting(false);
     }
   };
 
+  /**
+   * Inizializzazione applicazione: Caricamento dati e sessione
+   */
   useEffect(() => {
     const initApp = async () => {
       const localData = await loadFromDB();
@@ -145,12 +149,25 @@ const App: React.FC = () => {
         const profile = { id: session.user.id, email: session.user.email || '' };
         setUser(profile);
         userRef.current = profile;
+        
         setIsSyncing(true);
         const cloudData = await fetchDataFromCloud(session.user.id);
+        
         if (cloudData) {
-          const merged = { ...localData, ...cloudData };
-          setState(merged);
-          stateRef.current = merged;
+          // Logica di unione intelligente: vince chi è più recente
+          const localTime = localData.lastSynced || 0;
+          const cloudTime = cloudData.lastSynced || 0;
+          
+          if (cloudTime > localTime) {
+            const merged = { ...localData, ...cloudData };
+            setState(merged);
+            stateRef.current = merged;
+            saveToDB(merged); // Aggiorniamo IndexedDB con i dati cloud
+          } else {
+            setState(localData);
+            stateRef.current = localData;
+            persistData(true); // Se il locale è più nuovo, forziamo update cloud
+          }
         } else {
           setState(localData);
           stateRef.current = localData;
@@ -167,6 +184,7 @@ const App: React.FC = () => {
 
     initApp();
 
+    // Listener per i cambiamenti di stato autenticazione
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const profile = { id: session.user.id, email: session.user.email || '' };
@@ -179,7 +197,7 @@ const App: React.FC = () => {
     });
 
     return () => authListener.subscription.unsubscribe();
-  }, []);
+  }, [persistData]);
 
   const lang = state.settings?.language || 'it';
   const t = (key: string) => getTranslation(lang, key);
@@ -219,8 +237,9 @@ const App: React.FC = () => {
           onLogout={async () => {
             await supabase.auth.signOut();
             setUser(null);
-            updateState({ finishedProducts: [], rawMaterials: [], settings: state.settings });
+            updateState({ finishedProducts: [], rawMaterials: [], settings: state.settings }, true);
             setView('HOME');
+            showNotification("Disconnesso");
           }} 
           onUpdateSettings={settings => {
             if (settings.currency !== state.settings?.currency) handleCurrencyUpdate(settings.currency);
@@ -263,7 +282,7 @@ const App: React.FC = () => {
       )}
       {toast && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[500] animate-in slide-in-from-top-10 fade-in">
-          <div className={`bg-zinc-900 border-2 ${toast.type === 'error' ? 'border-red-500' : 'border-wax-orange'} px-6 py-4 rounded-2xl`}>
+          <div className={`bg-zinc-900 border-2 ${toast.type === 'error' ? 'border-red-500' : (toast.type === 'warning' ? 'border-amber-500' : 'border-wax-orange')} px-6 py-4 rounded-2xl shadow-2xl shadow-black`}>
             <span className="font-bold uppercase text-xs tracking-widest text-white">{toast.message}</span>
           </div>
         </div>

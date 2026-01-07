@@ -13,40 +13,61 @@ const getErrorMessage = (error: any): string => {
   return error.message || error.error_description || "Errore di comunicazione con il server";
 };
 
+/**
+ * Recupera i dati dal cloud per un determinato utente.
+ * Ritorna null se non ci sono dati o se c'è un errore gestibile.
+ */
 export const fetchDataFromCloud = async (userId: string): Promise<InventoryState | null> => {
   try {
     const { data, error } = await supabase
       .from('user_data')
-      .select('payload')
+      .select('payload, updated_at')
       .eq('user_id', userId)
       .maybeSingle();
     
     if (error) {
-      console.warn("Avviso durante il fetch cloud:", error.message);
+      console.error("Errore fetching cloud:", error.message);
       return null;
     }
     
-    return data ? (data.payload as InventoryState) : null;
+    if (data && data.payload) {
+      const state = data.payload as InventoryState;
+      // Sincronizziamo il timestamp se disponibile nel DB
+      return {
+        ...state,
+        lastSynced: data.updated_at ? new Date(data.updated_at).getTime() : Date.now()
+      };
+    }
+    
+    return null;
   } catch (e) {
     console.error("Errore critico durante il fetch cloud:", e);
     return null;
   }
 };
 
+/**
+ * Sincronizza lo stato locale sul cloud.
+ */
 export const syncDataToCloud = async (userId: string, state: InventoryState) => {
   try {
-    if (!userId) return { success: false, message: "ID Utente mancante" };
+    if (!userId) return { success: false, message: "Utente non autenticato" };
+
+    // Prepariamo il payload pulito (rimuoviamo metadati temporanei se necessario)
+    const { lastSynced, ...payloadToSync } = state;
 
     const { error } = await supabase
       .from('user_data')
       .upsert({ 
         user_id: userId, 
-        payload: state,
+        payload: payloadToSync,
         updated_at: new Date().toISOString() 
-      }, { onConflict: 'user_id' });
+      }, { 
+        onConflict: 'user_id' 
+      });
     
     if (error) {
-      console.error("Errore sincronizzazione DB:", error.message);
+      console.error("Errore upsert Supabase:", error.message);
       return { success: false, message: "Sincronizzazione fallita", details: error.message };
     }
     
@@ -56,10 +77,13 @@ export const syncDataToCloud = async (userId: string, state: InventoryState) => 
   }
 };
 
+/**
+ * Elimina i dati dal cloud (Reset di fabbrica).
+ */
 export const deleteUserDataAndCloud = async () => {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) throw new Error("Sessione non valida o scaduta. Effettua nuovamente il login.");
+    if (userError || !user) throw new Error("Sessione non valida. Effettua il login.");
 
     const { error: dbError } = await supabase
       .from('user_data')
