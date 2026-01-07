@@ -98,15 +98,17 @@ const App: React.FC = () => {
 
     setIsConverting(true);
     try {
+      // Regola Senior: Crea istanza nuova per ogni chiamata per usare l'API_KEY più aggiornata
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Qual è il tasso di cambio attuale da ${oldCurrency} a ${newCurrency}? Rispondi solo con il valore numerico decimale.`,
+        contents: `Quanto vale 1 ${oldCurrency} in ${newCurrency} oggi? Rispondi ESCLUSIVAMENTE con il valore numerico decimale (es: 1.08). Usa Google Search per precisione.`,
         config: {
           tools: [{ googleSearch: {} }]
         }
       });
 
+      // Regola Senior: Accedi a .text come proprietà, non metodo
       const rateText = response.text || "1";
       const rate = parseFloat(rateText.replace(/[^0-9.]/g, ''));
       
@@ -126,6 +128,7 @@ const App: React.FC = () => {
 
       showNotification(`Convertito con tasso: ${rate.toFixed(4)}`);
     } catch (error) {
+      console.error("Errore conversione:", error);
       showNotification("Errore recupero cambio", "error");
       updateState({ ...state, settings: { ...state.settings!, currency: newCurrency } });
     } finally {
