@@ -10,17 +10,11 @@ import Settings from './components/Settings';
 import { View, InventoryState, FinishedProduct, TransactionType, Language, Currency, UserProfile } from './types';
 import { loadFromDB, saveToDB, clearDB } from './utils/storage';
 import { getTranslation } from './utils/i18n';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Globe, Coins, RefreshCw } from 'lucide-react';
 import { supabase, syncDataToCloud, fetchDataFromCloud } from './utils/supabase';
 
 const App: React.FC = () => {
-  const checkRecovery = () => {
-    return window.location.hash.includes('type=recovery') || 
-           window.location.search.includes('type=recovery') ||
-           window.location.hash.includes('access_token=');
-  };
-
   const [view, setView] = useState<View>('HOME');
   const [state, setState] = useState<InventoryState>({ 
     finishedProducts: [], 
@@ -49,17 +43,11 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  /**
-   * Sincronizza i dati locali con Supabase
-   */
   const persistData = useCallback(async (forceCloud = false) => {
     const currentState = stateRef.current;
     const currentUser = userRef.current;
-    
-    // Salviamo sempre in locale (IndexedDB)
     await saveToDB(currentState);
     
-    // Se c'è un utente, sincronizziamo sul cloud
     if (currentUser) {
       if (forceCloud) {
         setIsSyncing(true);
@@ -72,7 +60,6 @@ const App: React.FC = () => {
         }
         setIsSyncing(false);
       } else {
-        // Debounce automatico per non sovraccaricare il database
         if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
         syncTimeoutRef.current = setTimeout(async () => {
           if (!userRef.current) return;
@@ -82,7 +69,7 @@ const App: React.FC = () => {
              setState(prev => ({ ...prev, lastSynced: Date.now() }));
           }
           setIsSyncing(false);
-        }, 5000); // 5 secondi di delay per la sincronizzazione auto
+        }, 5000);
       }
     }
   }, []);
@@ -106,14 +93,28 @@ const App: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Qual è il tasso di cambio attuale da ${oldCurrency} a ${newCurrency}? Rispondi solo con il numero decimale (es. 1.085).`,
-        config: { tools: [{ googleSearch: {} }] }
+        contents: `Restituisci il tasso di cambio attuale da ${oldCurrency} a ${newCurrency} come un numero decimale puro.`,
+        config: { 
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              rate: { 
+                type: Type.NUMBER, 
+                description: "Il valore numerico del tasso di cambio attuale" 
+              }
+            },
+            required: ["rate"]
+          }
+        }
       });
 
-      const rateText = response.text || "1";
-      const rate = parseFloat(rateText.replace(/[^0-9.]/g, ''));
+      const jsonStr = response.text || "{\"rate\": 1}";
+      const data = JSON.parse(jsonStr);
+      const rate = data.rate;
       
-      if (isNaN(rate) || rate === 0) throw new Error("Tasso non valido");
+      if (!rate || isNaN(rate) || rate === 0) throw new Error("Cambio non valido");
 
       const convertedProducts = state.finishedProducts.map(p => ({
         ...p,
@@ -127,19 +128,17 @@ const App: React.FC = () => {
         settings: { ...state.settings!, currency: newCurrency }
       });
 
-      showNotification(`Prezzi aggiornati (${rate.toFixed(4)})`);
+      showNotification(`${t('valuta')} aggiornata: x${rate.toFixed(4)}`);
     } catch (error) {
-      console.error("Errore conversione:", error);
-      showNotification("Errore cambio valuta", "error");
+      console.error("Errore conversione valuta:", error);
+      showNotification("Errore aggiornamento cambio", "error");
+      // Aggiorniamo comunque la valuta nelle impostazioni anche se il calcolo fallisce
       updateState({ ...state, settings: { ...state.settings!, currency: newCurrency } });
     } finally {
       setIsConverting(false);
     }
   };
 
-  /**
-   * Inizializzazione applicazione: Caricamento dati e sessione
-   */
   useEffect(() => {
     const initApp = async () => {
       const localData = await loadFromDB();
@@ -149,24 +148,21 @@ const App: React.FC = () => {
         const profile = { id: session.user.id, email: session.user.email || '' };
         setUser(profile);
         userRef.current = profile;
-        
         setIsSyncing(true);
         const cloudData = await fetchDataFromCloud(session.user.id);
         
         if (cloudData) {
-          // Logica di unione intelligente: vince chi è più recente
           const localTime = localData.lastSynced || 0;
           const cloudTime = cloudData.lastSynced || 0;
-          
           if (cloudTime > localTime) {
             const merged = { ...localData, ...cloudData };
             setState(merged);
             stateRef.current = merged;
-            saveToDB(merged); // Aggiorniamo IndexedDB con i dati cloud
+            saveToDB(merged);
           } else {
             setState(localData);
             stateRef.current = localData;
-            persistData(true); // Se il locale è più nuovo, forziamo update cloud
+            persistData(true);
           }
         } else {
           setState(localData);
@@ -177,14 +173,11 @@ const App: React.FC = () => {
         setState(localData);
         stateRef.current = localData;
       }
-      
       if (!localData.settings?.language) setOnboardingStep('LANG');
       else if (!localData.settings?.currency) setOnboardingStep('CURR');
     };
-
     initApp();
 
-    // Listener per i cambiamenti di stato autenticazione
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const profile = { id: session.user.id, email: session.user.email || '' };
@@ -195,7 +188,6 @@ const App: React.FC = () => {
         userRef.current = null;
       }
     });
-
     return () => authListener.subscription.unsubscribe();
   }, [persistData]);
 
