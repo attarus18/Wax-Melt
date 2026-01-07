@@ -11,7 +11,7 @@ import { View, InventoryState, FinishedProduct, TransactionType, Language, Curre
 import { loadFromDB, saveToDB, clearDB } from './utils/storage';
 import { getTranslation } from './utils/i18n';
 import { GoogleGenAI } from "@google/genai";
-import { CheckCircle2, Globe, Coins, AlertCircle, RefreshCw, ShieldCheck, Lock, Check } from 'lucide-react';
+import { Globe, Coins, RefreshCw } from 'lucide-react';
 import { supabase, syncDataToCloud, fetchDataFromCloud, updateAccountPassword } from './utils/supabase';
 
 const App: React.FC = () => {
@@ -34,11 +34,7 @@ const App: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
   const [onboardingStep, setOnboardingStep] = useState<'LANG' | 'CURR' | null>(null);
-  
   const [isRecovering, setIsRecovering] = useState(checkRecovery());
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   const stateRef = useRef(state);
   const userRef = useRef(user);
@@ -48,10 +44,6 @@ const App: React.FC = () => {
     stateRef.current = state;
     document.documentElement.dir = state.settings?.language === 'ar' ? 'rtl' : 'ltr';
   }, [state]);
-
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
 
   const showNotification = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
     setToast({ message, type });
@@ -100,7 +92,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Funzione per convertire i prezzi utilizzando Gemini AI + Google Search
   const handleCurrencyUpdate = async (newCurrency: Currency) => {
     const oldCurrency = state.settings?.currency || 'EUR';
     if (oldCurrency === newCurrency) return;
@@ -108,19 +99,18 @@ const App: React.FC = () => {
     setIsConverting(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Qual è il tasso di cambio attuale da ${oldCurrency} a ${newCurrency}? Rispondi ESCLUSIVAMENTE con il numero decimale (es. 1.08).`;
-      
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
+        contents: `Qual è il tasso di cambio attuale da ${oldCurrency} a ${newCurrency}? Rispondi solo con il valore numerico decimale.`,
         config: {
           tools: [{ googleSearch: {} }]
         }
       });
 
-      const rate = parseFloat(response.text?.trim() || "1");
+      const rateText = response.text || "1";
+      const rate = parseFloat(rateText.replace(/[^0-9.]/g, ''));
       
-      if (isNaN(rate) || rate === 0) throw new Error("Tasso di cambio non valido");
+      if (isNaN(rate) || rate === 0) throw new Error("Tasso non valido");
 
       const convertedProducts = state.finishedProducts.map(p => ({
         ...p,
@@ -128,99 +118,18 @@ const App: React.FC = () => {
         sellingPrice: (p.sellingPrice || 0) * rate
       }));
 
-      const convertedMaterials = state.rawMaterials.map(m => ({
-        ...m,
-        unitPrice: (m.unitPrice || 0) * rate
-      }));
-
       updateState({
         ...state,
         finishedProducts: convertedProducts,
-        rawMaterials: convertedMaterials,
-        settings: {
-          ...state.settings!,
-          currency: newCurrency
-        }
+        settings: { ...state.settings!, currency: newCurrency }
       });
 
       showNotification(`Convertito con tasso: ${rate.toFixed(4)}`);
     } catch (error) {
-      console.error("Errore conversione:", error);
-      showNotification("Errore recupero tasso di cambio", "error");
-      // Aggiorniamo comunque la valuta visiva anche se il calcolo fallisce
-      updateState({
-        ...state,
-        settings: { ...state.settings!, currency: newCurrency }
-      });
+      showNotification("Errore recupero cambio", "error");
+      updateState({ ...state, settings: { ...state.settings!, currency: newCurrency } });
     } finally {
       setIsConverting(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      setIsSyncing(true);
-      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-      
-      await supabase.auth.signOut();
-      
-      const cleanState: InventoryState = { 
-        finishedProducts: [], 
-        rawMaterials: [], 
-        settings: stateRef.current.settings 
-      };
-      
-      userRef.current = null;
-      setUser(null);
-      updateState(cleanState, true);
-      await clearDB();
-      
-      setView('HOME');
-      showNotification("Sessione chiusa", "warning");
-    } catch (e) {
-      console.error("Errore logout:", e);
-      setUser(null);
-      userRef.current = null;
-      setView('HOME');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleClearData = async () => {
-    try {
-      await clearDB();
-      const resetState: InventoryState = { 
-        finishedProducts: [], 
-        rawMaterials: [], 
-        settings: state.settings 
-      };
-      updateState(resetState);
-      setView('HOME');
-      showNotification("Database resettato", "success");
-    } catch (e) {
-      showNotification("Errore reset", "error");
-    }
-  };
-
-  const handleRecoverySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      showNotification("Password non uguali", "error");
-      return;
-    }
-    setRecoveryLoading(true);
-    try {
-      const { error } = await updateAccountPassword(newPassword);
-      if (error) throw error;
-      showNotification("Password aggiornata!");
-      setIsRecovering(false);
-      window.location.hash = '';
-      setView('HOME');
-    } catch (e: any) {
-      showNotification(e.message || "Errore ripristino", "error");
-    } finally {
-      setRecoveryLoading(false);
     }
   };
 
@@ -233,7 +142,6 @@ const App: React.FC = () => {
         const profile = { id: session.user.id, email: session.user.email || '' };
         setUser(profile);
         userRef.current = profile;
-        
         setIsSyncing(true);
         const cloudData = await fetchDataFromCloud(session.user.id);
         if (cloudData) {
@@ -261,13 +169,6 @@ const App: React.FC = () => {
         const profile = { id: session.user.id, email: session.user.email || '' };
         setUser(profile);
         userRef.current = profile;
-        if (event === 'PASSWORD_RECOVERY') setIsRecovering(true);
-        if (event === 'SIGNED_IN') {
-           setIsSyncing(true);
-           const cloud = await fetchDataFromCloud(session.user.id);
-           if (cloud) updateState(cloud);
-           setIsSyncing(false);
-        }
       } else {
         setUser(null);
         userRef.current = null;
@@ -287,9 +188,17 @@ const App: React.FC = () => {
       case 'CALCULATOR': return <Calculator {...commonProps} />;
       case 'PRODUCTION_COST': return <ProductionCost {...commonProps} />;
       case 'FINISHED_PRODUCTS': return (
-        <InventoryFinished {...commonProps} products={state.finishedProducts} onAdd={p => updateState({ ...state, finishedProducts: [...state.finishedProducts, p] })} onUpdate={p => updateState({ ...state, finishedProducts: state.finishedProducts.map(old => old.id === p.id ? p : old) })} onTransaction={(id, type) => {
-           updateState({ ...state, finishedProducts: state.finishedProducts.map(p => p.id === id ? { ...p, quantity: type === 'SALE' ? Math.max(0, p.quantity - 1) : p.quantity + 1, history: [...(p.history || []), { id: crypto.randomUUID(), type, timestamp: Date.now() }] } : p)});
-        }} onDelete={id => updateState({ ...state, finishedProducts: state.finishedProducts.filter(p => p.id !== id) })} onShowStats={id => { setSelectedProductId(id); setView('PRODUCT_STATS'); }} />
+        <InventoryFinished 
+          {...commonProps} 
+          products={state.finishedProducts} 
+          onAdd={p => updateState({ ...state, finishedProducts: [...state.finishedProducts, p] })} 
+          onUpdate={p => updateState({ ...state, finishedProducts: state.finishedProducts.map(old => old.id === p.id ? p : old) })} 
+          onTransaction={(id, type) => {
+             updateState({ ...state, finishedProducts: state.finishedProducts.map(p => p.id === id ? { ...p, quantity: type === 'SALE' ? Math.max(0, p.quantity - 1) : p.quantity + 1, history: [...(p.history || []), { id: crypto.randomUUID(), type, timestamp: Date.now() }] } : p)});
+          }} 
+          onDelete={id => updateState({ ...state, finishedProducts: state.finishedProducts.filter(p => p.id !== id) })} 
+          onShowStats={id => { setSelectedProductId(id); setView('PRODUCT_STATS'); }} 
+        />
       );
       case 'PRODUCT_STATS':
         const product = state.finishedProducts.find(p => p.id === selectedProductId);
@@ -304,15 +213,17 @@ const App: React.FC = () => {
           isConverting={isConverting} 
           lastSynced={state.lastSynced} 
           onSyncNow={() => persistData(true)} 
-          onLogout={handleLogout} 
-          onUpdateSettings={settings => {
-            if (settings.currency !== state.settings?.currency) {
-              handleCurrencyUpdate(settings.currency);
-            } else {
-              updateState({...state, settings});
-            }
+          onLogout={async () => {
+            await supabase.auth.signOut();
+            setUser(null);
+            updateState({ finishedProducts: [], rawMaterials: [], settings: state.settings });
+            setView('HOME');
           }} 
-          onClearData={handleClearData} 
+          onUpdateSettings={settings => {
+            if (settings.currency !== state.settings?.currency) handleCurrencyUpdate(settings.currency);
+            else updateState({...state, settings});
+          }} 
+          onClearData={() => { clearDB(); updateState({ finishedProducts: [], rawMaterials: [], settings: state.settings }); setView('HOME'); }} 
         />
       );
       default: return <Home {...commonProps} user={user} />;
@@ -339,16 +250,28 @@ const App: React.FC = () => {
                 <Coins className="text-wax-orange mb-6 mx-auto" size={48} />
                 <h2 className="text-2xl font-black text-white mb-6 uppercase tracking-tighter italic">VALUTA</h2>
                 <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => { updateState({ ...state, settings: { ...state.settings!, currency: 'EUR' } }); setOnboardingStep(null); }} className="p-6 rounded-2xl bg-zinc-800 border-2 border-transparent hover:border-wax-orange"><span className="text-4xl font-black text-wax-orange">€</span></button>
-                  <button onClick={() => { updateState({ ...state, settings: { ...state.settings!, currency: 'USD' } }); setOnboardingStep(null); }} className="p-6 rounded-2xl bg-zinc-800 border-2 border-transparent hover:border-wax-orange"><span className="text-4xl font-black text-wax-orange">$</span></button>
+                  <button onClick={() => { updateState({ ...state, settings: { ...state.settings!, currency: 'EUR' } }); setOnboardingStep(null); }} className="p-6 rounded-2xl bg-zinc-800 border-2 border-transparent hover:border-wax-orange font-black text-wax-orange text-3xl">€</button>
+                  <button onClick={() => { updateState({ ...state, settings: { ...state.settings!, currency: 'USD' } }); setOnboardingStep(null); }} className="p-6 rounded-2xl bg-zinc-800 border-2 border-transparent hover:border-wax-orange font-black text-wax-orange text-3xl">$</button>
                 </div>
               </div>
             )}
           </div>
         </div>
       )}
-      {toast && (<div className="fixed top-6 left-1/2 -translate-x-1/2 z-[500] animate-in slide-in-from-top-10 fade-in"><div className={`bg-zinc-900 border-2 ${toast.type === 'error' ? 'border-red-500' : 'border-wax-orange'} px-6 py-4 rounded-2xl flex items-center gap-3 shadow-2xl`}><span className={`font-bold uppercase text-xs tracking-widest ${toast.type === 'error' ? 'text-red-500' : 'text-white'}`}>{toast.message}</span></div></div>)}
-      <div className="w-full max-w-sm flex justify-start items-center mb-6 px-2 mt-8 h-12 no-print">{view !== 'HOME' && (<button onClick={() => setView('HOME')} className="text-wax-orange flex items-center gap-2 bg-zinc-800/80 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-zinc-700 transition-all active:scale-95"><span className="text-xs font-black tracking-widest uppercase">Home</span></button>)}</div>
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[500] animate-in slide-in-from-top-10 fade-in">
+          <div className={`bg-zinc-900 border-2 ${toast.type === 'error' ? 'border-red-500' : 'border-wax-orange'} px-6 py-4 rounded-2xl`}>
+            <span className="font-bold uppercase text-xs tracking-widest text-white">{toast.message}</span>
+          </div>
+        </div>
+      )}
+      <div className="w-full max-w-sm flex justify-start items-center mb-6 px-2 mt-8 h-12 no-print">
+        {view !== 'HOME' && (
+          <button onClick={() => setView('HOME')} className="text-wax-orange flex items-center gap-2 bg-zinc-800/80 backdrop-blur-md px-5 py-2.5 rounded-2xl border border-zinc-700 transition-all active:scale-95">
+            <span className="text-xs font-black tracking-widest uppercase">Home</span>
+          </button>
+        )}
+      </div>
       <main className="w-full flex-grow flex flex-col items-center">{renderView()}</main>
     </div>
   );
