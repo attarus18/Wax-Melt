@@ -10,7 +10,8 @@ import Settings from './components/Settings';
 import { View, InventoryState, FinishedProduct, TransactionType, Language, Currency, UserProfile } from './types';
 import { loadFromDB, saveToDB, clearDB } from './utils/storage';
 import { getTranslation } from './utils/i18n';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 import { Globe, Coins, RefreshCw } from 'lucide-react';
 import { supabase, syncDataToCloud, fetchDataFromCloud } from './utils/supabase';
 
