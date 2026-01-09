@@ -10,7 +10,8 @@ import Settings from './components/Settings';
 import { View, InventoryState, FinishedProduct, TransactionType, Language, Currency, UserProfile } from './types';
 import { loadFromDB, saveToDB, clearDB } from './utils/storage';
 import { getTranslation } from './utils/i18n';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// Fixed: Corrected import to use @google/genai and included Type as required by guidelines
+import { GoogleGenAI, Type } from "@google/genai";
 
 import { Globe, Coins, RefreshCw } from 'lucide-react';
 import { supabase, syncDataToCloud, fetchDataFromCloud } from './utils/supabase';
@@ -91,6 +92,7 @@ const App: React.FC = () => {
 
     setIsConverting(true);
     try {
+      // Fixed: Initialized GoogleGenAI with named parameter apiKey as per guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",

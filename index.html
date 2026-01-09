@@ -2,184 +2,93 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>WaxPro Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-    <!-- Libreria per conversione HTML in PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #1a1a1a;
-        color: white;
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #1a1a1a; 
+        color: white; 
+        -webkit-tap-highlight-color: transparent; 
+        overscroll-behavior: none;
+        touch-action: manipulation;
       }
       .bg-app-dark { background-color: #1a1a1a; }
-      .bg-card-dark { background-color: #333333; }
       .text-wax-orange { color: #f9a602; }
       .bg-wax-orange { background-color: #f9a602; }
       .border-wax-orange { border-color: #f9a602; }
       
-      input[type="range"] {
-        -webkit-appearance: none;
-        width: 100%;
-        height: 8px;
-        background: #444;
-        border-radius: 5px;
-        outline: none;
+      .app-card { 
+        background-color: #262626; 
+        border: 2px solid #f9a602; 
+        border-radius: 1.25rem; 
+        box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7); 
       }
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 24px;
-        height: 24px;
-        background: #f9a602;
+      
+      .app-input { 
+        width: 100%; 
+        background-color: #333333; 
+        border: 2px solid #444; 
+        border-radius: 0.75rem; 
+        padding: 1rem; 
+        color: white; 
+        font-weight: 700; 
+        outline: none; 
+      }
+      .app-input:focus { border-color: #f9a602; background-color: #3d3d3d; }
+      
+      .app-button { 
+        background-color: #f9a602; 
+        color: #1a1a1a; 
+        font-weight: 900; 
+        border-radius: 1rem; 
+        padding: 1.25rem; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 0.75rem; 
+        text-transform: uppercase; 
+        letter-spacing: 0.1em; 
+        border: none; 
+        width: 100%; 
         cursor: pointer;
-        border-radius: 50%;
-        border: 3px solid #1a1a1a;
-        box-shadow: 0 0 10px rgba(249, 166, 2, 0.4);
+        transition: transform 0.1s active;
       }
+      .app-button:active { transform: scale(0.96); }
       
-      .app-card {
-        background-color: #262626;
-        border: 2px solid #f9a602;
-        border-radius: 1.25rem;
-        box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
-      }
-      
-      .app-input {
-        width: 100%;
-        background-color: #333333;
-        border: 2px solid #444;
-        border-radius: 0.75rem;
-        padding: 1rem;
-        color: white;
-        font-weight: 700;
-        outline: none;
-        transition: all 0.2s ease;
-      }
-      .app-input:focus {
-        border-color: #f9a602;
-        background-color: #3d3d3d;
-        box-shadow: 0 0 0 4px rgba(249, 166, 2, 0.1);
-      }
-      
-      .app-label {
-        display: block;
-        width: 100%;
-        font-size: 0.75rem;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: #a1a1aa;
-        margin-bottom: 0.5rem;
+      .app-label { 
+        display: block; 
+        font-size: 0.75rem; 
+        font-weight: 900; 
+        text-transform: uppercase; 
+        letter-spacing: 0.1em; 
+        color: #a1a1aa; 
+        margin-bottom: 0.5rem; 
       }
 
-      .app-button {
-        background-color: #f9a602;
-        color: #1a1a1a;
-        font-weight: 900;
-        border-radius: 1rem;
-        padding: 1.25rem;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        cursor: pointer;
-        border: none;
-        width: 100%;
-      }
-      .app-button:hover {
-        transform: translateY(-2px);
-        background-color: #ffb732;
-        box-shadow: 0 10px 25px rgba(249, 166, 2, 0.3);
-      }
-      .app-button:active {
-        transform: scale(0.97);
-      }
-
-      @keyframes pulse-red {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(1.1); }
-      }
-      .animate-pulse-red {
-        animation: pulse-red 1s infinite ease-in-out;
-      }
-
-      /* PDF Generation Overrides */
-      .pdf-export-mode {
-        background-color: #f8f9fa !important;
-        color: #1a1a1a !important;
-      }
-      .pdf-export-mode .app-card {
-        background-color: #ffffff !important;
-        border-color: #f9a602 !important;
-        box-shadow: none !important;
-      }
-      .pdf-export-mode .text-white,
-      .pdf-export-mode .text-zinc-300,
-      .pdf-export-mode .text-zinc-400,
-      .pdf-export-mode .text-zinc-500,
-      .pdf-export-mode .text-zinc-600 {
-        color: #1a1a1a !important;
-      }
-      .pdf-export-mode .bg-app-dark {
-        background-color: #f8f9fa !important;
-      }
-      .pdf-export-mode .bg-zinc-900,
-      .pdf-export-mode .bg-zinc-800,
-      .pdf-export-mode .bg-zinc-900\/40 {
-        background-color: #f1f5f9 !important;
-      }
-      .pdf-export-mode .border-zinc-800 {
-        border-color: #e2e8f0 !important;
-      }
-      .pdf-export-mode .text-wax-orange {
-        color: #f9a602 !important;
-      }
-      .pdf-export-mode .bg-wax-orange\/10 {
-        background-color: rgba(249, 166, 2, 0.1) !important;
-      }
-      .pdf-export-mode .bg-wax-orange\/5 {
-        background-color: rgba(249, 166, 2, 0.05) !important;
-      }
-
-      @media print {
-        @page { margin: 1cm; }
-        body { 
-          background: white !important; 
-          color: black !important; 
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        .no-print { display: none !important; }
-        .app-card { 
-          border: 1px solid #e5e7eb !important; 
-          background: white !important;
-          break-inside: avoid;
-        }
-      }
+      @keyframes pulse-sync { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+      .animate-sync { animation: pulse-sync 1.5s infinite ease-in-out; }
     </style>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "lucide-react": "https://esm.sh/lucide-react@0.470.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.47.10",
+    "@google/genai": "https://esm.sh/@google/genai@0.2.1",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
-</head>
+  </head>
   <body class="bg-app-dark overflow-x-hidden">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
